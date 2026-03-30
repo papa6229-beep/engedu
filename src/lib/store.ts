@@ -4,6 +4,7 @@ import type {
   OnboardingData, LevelTestResult, Curriculum,
   DailySession, WrongNote, WeeklyReport, Question,
 } from "@/types"
+import { getKoreanDateStr } from "@/lib/utils"
 
 interface AppState {
   // 데이터
@@ -18,21 +19,24 @@ interface AppState {
   setOnboarding: (data: OnboardingData) => void
   addLevelTestResult: (result: LevelTestResult) => void
   setCurriculum: (curriculum: Curriculum) => void
-  addDailySession: (session: DailySession) => void
+  addDailySession: (session: DailySession) => void       // upsert by date
   addWrongNote: (question: Question) => void
+  markReviewed: (questionId: number, correct: boolean) => void
   addWeeklyReport: (report: WeeklyReport) => void
+  resetAll: () => void
 
   // 계산
   isOnboarded: () => boolean
   hasCompletedLevelTest: () => boolean
   getLatestLevelTest: () => LevelTestResult | null
   getDueReviewNotes: () => WrongNote[]
+  getTodaySession: () => DailySession | null
 }
 
 const addDays = (date: Date, days: number): string => {
   const d = new Date(date)
   d.setDate(d.getDate() + days)
-  return d.toISOString().split("T")[0]
+  return getKoreanDateStr(d)
 }
 
 export const useAppStore = create<AppState>()(
@@ -52,12 +56,17 @@ export const useAppStore = create<AppState>()(
 
       setCurriculum: (curriculum) => set({ curriculum }),
 
+      // 같은 날짜 세션이 있으면 덮어쓰기 (upsert by date)
       addDailySession: (session) =>
-        set((s) => ({ dailySessions: [...s.dailySessions, session] })),
+        set((s) => ({
+          dailySessions: s.dailySessions.some((d) => d.date === session.date)
+            ? s.dailySessions.map((d) => d.date === session.date ? session : d)
+            : [...s.dailySessions, session],
+        })),
 
       addWrongNote: (question) =>
         set((s) => {
-          const today = new Date()
+          const now = new Date()
           const existing = s.wrongNotes.find((n) => n.question.id === question.id)
           if (existing) {
             return {
@@ -66,8 +75,8 @@ export const useAppStore = create<AppState>()(
                   ? {
                       ...n,
                       wrongCount: n.wrongCount + 1,
-                      lastWrongAt: today.toISOString(),
-                      nextReviewAt: addDays(today, 1),
+                      lastWrongAt: now.toISOString(),
+                      nextReviewAt: addDays(now, 1), // 재오답: 내일 복습
                     }
                   : n
               ),
@@ -79,15 +88,42 @@ export const useAppStore = create<AppState>()(
               {
                 question,
                 wrongCount: 1,
-                lastWrongAt: today.toISOString(),
-                nextReviewAt: addDays(today, 1),
+                lastWrongAt: now.toISOString(),
+                nextReviewAt: getKoreanDateStr(now), // 신규 오답: 오늘 바로 복습 가능
               },
             ],
           }
         }),
 
+      // 복습 후 다음 복습일 업데이트 (맞으면 간격 늘리기, 틀리면 내일)
+      // wrongCount >= 3 이고 맞으면 완전 학습으로 삭제
+      markReviewed: (questionId, correct) =>
+        set((s) => {
+          const today = new Date()
+          const note = s.wrongNotes.find((n) => n.question.id === questionId)
+          if (correct && note && note.wrongCount >= 3) {
+            return { wrongNotes: s.wrongNotes.filter((n) => n.question.id !== questionId) }
+          }
+          return {
+            wrongNotes: s.wrongNotes.map((n) => {
+              if (n.question.id !== questionId) return n
+              const days = correct ? 3 : 1
+              return { ...n, nextReviewAt: addDays(today, days) }
+            }),
+          }
+        }),
+
       addWeeklyReport: (report) =>
         set((s) => ({ weeklyReports: [...s.weeklyReports, report] })),
+
+      resetAll: () => set({
+        onboarding: null,
+        levelTests: [],
+        curriculum: null,
+        dailySessions: [],
+        wrongNotes: [],
+        weeklyReports: [],
+      }),
 
       isOnboarded: () => get().onboarding !== null,
 
@@ -99,8 +135,13 @@ export const useAppStore = create<AppState>()(
       },
 
       getDueReviewNotes: () => {
-        const today = new Date().toISOString().split("T")[0]
+        const today = getKoreanDateStr()
         return get().wrongNotes.filter((n) => n.nextReviewAt <= today)
+      },
+
+      getTodaySession: () => {
+        const today = getKoreanDateStr()
+        return get().dailySessions.find((s) => s.date === today) ?? null
       },
     }),
     { name: "english-ai-tutor" }

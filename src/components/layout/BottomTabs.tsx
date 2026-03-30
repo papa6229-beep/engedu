@@ -1,13 +1,13 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, BookOpen, XCircle, BarChart2 } from "lucide-react"
+import { Home, BookOpen, CalendarDays, BarChart2 } from "lucide-react"
 
 const tabs = [
   { href: "/dashboard", label: "홈", icon: Home },
-  { href: "/dashboard?tab=study", label: "학습", icon: BookOpen },
-  { href: "/dashboard?tab=wrong", label: "오답", icon: XCircle },
-  { href: "/report", label: "리포트", icon: BarChart2 },
+  { href: "/today", label: "오늘", icon: BookOpen },
+  { href: "/calendar", label: "달력", icon: CalendarDays },
+  { href: "/progress", label: "통계", icon: BarChart2 },
 ]
 
 export function BottomTabs() {
@@ -16,7 +16,7 @@ export function BottomTabs() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-warm-200 bg-ivory dark:bg-warm-900 dark:border-warm-700 md:hidden">
       {tabs.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href.split("?")[0]
+        const active = pathname === href
         return (
           <Link
             key={href}

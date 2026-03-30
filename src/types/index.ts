@@ -1,13 +1,28 @@
 // ── 온보딩 ──────────────────────────────────────────────
 export type ExamType = "transfer" | "civil" | "suneung"
 export type DailyMinutes = 30 | 60 | 120 | 180
+export type ExamSeason = "2026-first" | "2026-second" | "undecided"
+
+export const EXAM_SEASON_LABELS: Record<ExamSeason, string> = {
+  "2026-first": "2026 상반기",
+  "2026-second": "2026 하반기",
+  "undecided": "미정",
+}
+
+// 시즌 → 커리큘럼 계산용 기준 날짜
+export const EXAM_SEASON_DATES: Record<ExamSeason, string> = {
+  "2026-first": "2026-03-15",
+  "2026-second": "2026-09-15",
+  "undecided": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+}
 
 export interface OnboardingData {
   examType: ExamType
-  targetDate: string        // ISO 날짜 "YYYY-MM-DD"
+  examSeason: ExamSeason
+  targetDate: string        // EXAM_SEASON_DATES에서 파생된 ISO 날짜
   dailyMinutes: DailyMinutes
   targetUniversity: string
-  completedAt: string       // ISO timestamp
+  completedAt: string
 }
 
 // ── 레벨 테스트 ─────────────────────────────────────────
@@ -31,6 +46,11 @@ export interface Question {
   explanation: string
   trap: string
   difficulty: Difficulty
+  subType: string           // 세부 출제 유형
+  discriminationPower: "상" | "중" | "하"  // 변별력
+  commonMistake: string     // 자주 하는 실수
+  relatedPart: GrammarPart[] // 연관 파트
+  studyDays: number         // 평균 학습 필요 일수
 }
 
 export interface PartResult {
@@ -89,6 +109,14 @@ export interface WeeklyReport {
   topMistakes: { part: GrammarPart; count: number }[]
   aiComment: string
   generatedAt: string
+}
+
+// ── 어휘 ─────────────────────────────────────────────────
+export interface VocabItem {
+  word: string
+  meaning: string       // "n. 예시"
+  example: string       // 영문 예문
+  exampleKr: string     // 한국어 해석
 }
 
 // ── Claude API 요청/응답 ──────────────────────────────────
