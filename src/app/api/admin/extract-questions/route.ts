@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
             {
               type: "file" as const,
               data: new Uint8Array(buffer),
-              mimeType: "application/pdf",
+              mediaType: "application/pdf",
             },
             {
               type: "text" as const,
