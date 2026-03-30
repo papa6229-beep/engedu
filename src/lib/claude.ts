@@ -2,7 +2,7 @@ import { generateText } from "ai"
 import { anthropic } from "@ai-sdk/anthropic"
 import type { GrammarPart, Difficulty, Question, PartResult, VocabItem } from "@/types"
 
-const MODEL = anthropic("claude-sonnet-4-6")
+const MODEL = anthropic("claude-sonnet-4.6")
 
 // 정답 위치를 무작위로 섞어 (A) 편향 제거
 function shuffleOptions(q: Question): Question {
@@ -69,7 +69,7 @@ ${universityContext}
   const { text } = await generateText({
     model: MODEL,
     prompt,
-    maxOutputTokens: 4000,
+    maxOutputTokens: 8000,
   })
 
   const jsonMatch = text.match(/\[[\s\S]*\]/)

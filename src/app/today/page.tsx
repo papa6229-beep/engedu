@@ -10,7 +10,7 @@ import { getKoreanDateStr } from "@/lib/utils"
 import type { Question, VocabItem, Difficulty, WrongNote } from "@/types"
 
 type TabType = "study" | "review" | "vocab"
-type StudyPhase = "idle" | "loading" | "studying" | "done"
+type StudyPhase = "idle" | "loading" | "studying" | "done" | "error"
 
 const BRAND = "#C96442"
 
@@ -74,21 +74,29 @@ export default function TodayPage() {
     if (!weekPlan) return
     setStudyPhase("loading")
     startTime.current = Date.now()
-    const res = await fetch("/api/questions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ part: weekPlan.part, difficulty, count: weekPlan.dailyCount }),
-    })
-    const data = await res.json()
-    setLoadingPct(100)
-    setTimeout(() => {
-      setQuestions(data.questions ?? [])
-      setStudyIdx(0)
-      setStudyCorrect(0)
-      setStudySelected(null)
-      setStudyShowAnswer(false)
-      setStudyPhase("studying")
-    }, 300)
+    try {
+      const res = await fetch("/api/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ part: weekPlan.part, difficulty, count: weekPlan.dailyCount }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.questions?.length) {
+        setStudyPhase("error")
+        return
+      }
+      setLoadingPct(100)
+      setTimeout(() => {
+        setQuestions(data.questions)
+        setStudyIdx(0)
+        setStudyCorrect(0)
+        setStudySelected(null)
+        setStudyShowAnswer(false)
+        setStudyPhase("studying")
+      }, 300)
+    } catch {
+      setStudyPhase("error")
+    }
   }
 
   const handleStudySelect = (option: string) => {
@@ -143,15 +151,26 @@ export default function TodayPage() {
 
   // 복습 세션 스냅샷 (인덱스 안정성)
   const [reviewNotes, setReviewNotes] = useState<WrongNote[]>([])
+
+  const resetReviewSession = (notes: WrongNote[]) => {
+    setReviewNotes(notes)
+    setReviewIdx(0)
+    setReviewDone(false)
+    setReviewStage("analyze")
+    setPracticeQuestion(null)
+    setPracticeSelected(null)
+    setPracticeShowAnswer(false)
+  }
+
   useEffect(() => {
     if (!reviewLoading && remoteNotes !== null) {
-      setReviewNotes(dueNotes)
+      resetReviewSession(dueNotes)
     }
   }, [reviewLoading, remoteNotes])
   // remote 없을 때(로컬 전용)도 반영
   useEffect(() => {
     if (remoteNotes === null && !reviewLoading) {
-      setReviewNotes(localDueNotes)
+      resetReviewSession(localDueNotes)
     }
   }, [activeTab])
 
@@ -338,6 +357,18 @@ export default function TodayPage() {
                 <p className="text-sm text-warm-400 leading-relaxed">{weekPlan.focusReason}</p>
                 <button onClick={loadQuestions} className="w-full py-3.5 rounded-xl text-sm font-bold text-white" style={{ background: BRAND }}>
                   학습 시작
+                </button>
+              </div>
+            )}
+
+            {/* error */}
+            {studyPhase === "error" && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-8 text-center space-y-4">
+                <div className="text-4xl">⚠️</div>
+                <p className="font-semibold text-red-700 dark:text-red-400">문제를 불러오지 못했습니다</p>
+                <p className="text-sm text-red-500 dark:text-red-400">잠시 후 다시 시도해주세요.</p>
+                <button onClick={loadQuestions} className="w-full py-3.5 rounded-xl text-sm font-bold text-white" style={{ background: BRAND }}>
+                  다시 시도
                 </button>
               </div>
             )}
